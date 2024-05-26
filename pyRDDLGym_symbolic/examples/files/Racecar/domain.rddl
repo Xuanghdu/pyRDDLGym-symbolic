@@ -1,0 +1,88 @@
+////////////////////////////////////////////////////////////////////
+// simplified version of
+// https://github.com/pyrddlgym-project/rddlrepository/tree/main/rddlrepository/archive/competitions/IPPC2023/RaceCar
+// A simple continuous MDP for the racecar problem.
+//
+// A car is in constant acceleration mode in the y direction.
+// The goal is to bring the car to within a fixed distance to a fixed
+// goal location. The car must remain x > 0.
+//
+// Author(s):
+// 		Mike Gimelfarb (mgimelfarb@yahoo.ca)
+//		Guanghan Wang (xuanghdu.wang@mail.utoronto.ca)
+//
+////////////////////////////////////////////////////////////////////
+domain racecar {
+
+    requirements = {
+        reward-deterministic
+    };
+
+	types {
+		b: object;												// boundary of the race track that cannot be crossed by the car
+	};
+
+    pvariables {
+
+		GX 			: { non-fluent, real, default = 1.0 };		// x center of goal region
+		GY 			: { non-fluent, real, default = 1.0 };		// y center of goal region
+		RADIUS 		: { non-fluent, real, default = 0.1 };		// radius of goal region
+
+		DT	 	: { non-fluent, real, default = 1 };			// how much time passes between epochs
+
+       	x    	: { state-fluent, real, default = 1.0 };      	// x position of car
+		y 		: { state-fluent, real, default = 0.0 };		// y position of car
+		vx		: { state-fluent, real, default = 0.0 };		// x velocity of car
+		vy		: { state-fluent, real, default = 0.0 };		// y velocity of car
+       	ax 		: { state-fluent, real, default = 0.0 };      	// x acceleration of car
+		ay 		: { state-fluent, real, default = 0.0 };      	// y acceleration of car
+
+		ax_noise	: { state-fluent, real, default = 0.0 };	// x acceleration noise
+		ay_noise	: { state-fluent, real, default = 0.0 };	// y acceleration noise
+
+    	reach    : { state-fluent, bool, default = false }; 	// whether the goal has been reached
+		violation: { state-fluent, bool, default = false };		// whether car intersects any boundary
+    };
+
+    cpfs {
+		// 0.95 is the constant specifying the location of the barrier
+		violation' = if (violation) then true else if (x <= 0.95) then true else false;
+
+		x' = x + vx * DT + (ax + ax_noise) * DT * DT / 2;
+		y' = y + vy * DT + (ay + ay_noise) * DT * DT / 2;
+
+		ax' = ax + ax_noise;
+		ay' = ay + ay_noise;
+
+		ax_noise' = ax_noise;
+		ay_noise' = ay_noise;
+
+		vx' = vx + (ax + ax_noise) * DT;
+		vy' = vy + (ay + ay_noise) * DT;
+
+		// for a circle goal region
+		reach' = if (reach) then true else if(pow[x - GX, 2] + pow[y - GY, 2] <= RADIUS * RADIUS) then true else false;
+		// for a square goal region
+		// reach' = if (reach) then true else if(abs[x - GX] + abs[y - GY] <= RADIUS) then true else false;
+    };
+
+    reward =  if (reach | violation) then 0 else if (x <= 0.95) then 0 else
+					// for a circle goal region
+					if(pow[x - GX, 2] + pow[y - GY, 2] <= RADIUS * RADIUS)
+					// for a square goal region
+					// if(abs[x - GX] + abs[y - GY] <= RADIUS)
+					then 1.0
+					else 0;
+
+	termination {
+	};
+
+    state-invariants {
+    };
+
+}
+
+// parameter: y acceleration
+// given constant noise, solve for reachibility
+
+// python pyRDDLGym_symbolic/examples/run_pe --domain Racecar --policy_fpath=./pyRDDLGym_symbolic/examples/files/Racecar/policy/policy.json --max_iter=4 --save_graph

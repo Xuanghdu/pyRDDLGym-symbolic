@@ -16,16 +16,17 @@ domain reservoir_control_sdp {
         TOP_RES(reservoir): { non-fluent, real, default = 100.0 }; // Overflowing amount
         MAX_LEVEL(reservoir): { non-fluent, real, default = 55.0 };  // The upper bound for desired reservoir level
 		MIN_LEVEL(reservoir): { non-fluent, real, default = 45.0 };  // The lower bound for desired reservoir level
-        RELEASE_VALUE(reservoir): { non-fluent, real, default = 5.0 }; // 
+        RELEASE_VALUE(reservoir): { non-fluent, real, default = 5.0 }; //
         RAIN_VALUE(reservoir): { non-fluent, real, default = 8.0 };
         RAIN_PROP(reservoir): { non-fluent, real, default=0.5 };
-        COST_OVERMAX(reservoir) : { non-fluent, real, default =  -1.0 };
-        COST_UNDERMIN(reservoir) : { non-fluent, real, default =  -1.0 };
-        MAINTAIN_REWARD(reservoir) : { non-fluent, real, default =  0.0 };
+        // COST_OVERMAX(reservoir) : { non-fluent, real, default =  -1.0 };
+        // COST_UNDERMIN(reservoir) : { non-fluent, real, default =  -1.0 };
+        // MAINTAIN_REWARD(reservoir) : { non-fluent, real, default =  0.0 };
         RES_CONNECT(reservoir, reservoir): { non-fluent, bool, default = false }; // Indicates 2nd reservoir is forward connected to 1st reservoir
 
         // State fluents
         rlevel(reservoir): { state-fluent, real, default = 100.0 }; // Reservoir level
+        failure: { state-fluent, bool, default = false };
 
         // Action fluents
         release(reservoir): { action-fluent, bool, default = false }; // Action to set outflow of reservoir
@@ -33,31 +34,42 @@ domain reservoir_control_sdp {
 
     cpfs {
 
-        rlevel'(?r) = min[TOP_RES(?r), 
+        rlevel'(?r) = min[TOP_RES(?r),
                         max[
-                            0, 
-                            rlevel(?r) 
+                            0,
+                            rlevel(?r)
                             + Bernoulli(RAIN_PROP(?r)) * RAIN_VALUE(?r)
-                            // Alternatively, following also works, but leads to more complicated decision ordering. 
-                            // + (if (Bernoulli(RAIN_PROP(?r))) then RAIN_VALUE(?r) else 0)     
-                            - release(?r) * RELEASE_VALUE(?r) 
+                            // Alternatively, following also works, but leads to more complicated decision ordering.
+                            // + (if (Bernoulli(RAIN_PROP(?r))) then RAIN_VALUE(?r) else 0)
+                            - release(?r) * RELEASE_VALUE(?r)
                             + sum_{?in : reservoir} [
                                 RES_CONNECT(?in, ?r) * release(?in) * RELEASE_VALUE(?in)
                             ]
                         ]
                     ];
+
+        failure' = if (failure) then true
+                   else if ((sum_{?r: reservoir}
+                                    [     if (rlevel(?r) > MAX_LEVEL(?r)) then -1
+                                     else if (rlevel(?r) < MIN_LEVEL(?r)) then -1
+                                     else 0
+                                    ]) < 0)
+                    then true else false;
     };
 
 
-     reward = (sum_{?r: reservoir} [if (rlevel(?r) > MAX_LEVEL(?r))
-                                        then COST_OVERMAX(?r)
-                                   else if (rlevel(?r) < MIN_LEVEL(?r))
-                                        then COST_UNDERMIN(?r)
-                                   else MAINTAIN_REWARD(?r)
-                                   ]);    
+     reward = if (failure) then 0 else if ((sum_{?r: reservoir}
+                                    [     if (rlevel(?r) > MAX_LEVEL(?r)) then -1
+                                     else if (rlevel(?r) < MIN_LEVEL(?r)) then -1
+                                     else 0
+                                    ]) < 0)
+                            then 1 else 0;
 
 	state-invariants {
 
 	};
-
 }
+
+// Assume rlevel > MAX_LEVEL or rlevel < MIN_LEVEL is a failure state, what's the probability of failure?
+
+// python pyRDDLGym_symbolic/examples/run_pe.py --domain Reservoir --policy_fpath=./pyRDDLGym_symbolic/examples/files/Reservoir/policy/policy.json --max_iter=3 --save_graph

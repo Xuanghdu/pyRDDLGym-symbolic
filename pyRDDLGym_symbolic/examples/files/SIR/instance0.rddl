@@ -1,0 +1,19 @@
+non-fluents Epidemic {
+    domain = epidemic_sir_with_actions;
+
+    objects {
+        population : {p};  // Assuming a single population
+    };
+}
+
+instance inst_epidemic {
+
+    domain = epidemic_sir_with_actions;
+
+    non-fluents = Epidemic;
+
+    max-nondef-actions = 1;  // Allow one non-deterministic action per step
+
+    horizon = 100;          // Simulation horizon
+    discount = 1.0;         // No discounting
+}

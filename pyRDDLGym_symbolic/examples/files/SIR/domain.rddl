@@ -1,0 +1,58 @@
+domain epidemic_sir_with_actions {
+
+  requirements = {
+    continuous,
+    reward-deterministic
+  };
+
+  types {
+    population : object;
+  };
+
+  pvariables {
+    // State fluents
+    beta : {state-fluent, real, default=0.1};   // Infection rate
+    gamma : {state-fluent, real, default=0.1};  // Recovery rate
+    susceptible : {state-fluent, real, default=1.0};
+    infected : {state-fluent, real, default=0.0};
+    recovered : {state-fluent, real, default=0.0};
+    vaccinated : {state-fluent, real, default=0.0};
+
+    g  : { state-fluent, bool, default = false };
+    overwhelmed : { state-fluent, bool, default = false };
+  };
+
+  cpfs {
+    beta' = beta;
+    gamma' = gamma;
+
+    // without vaccination
+    // susceptible' = susceptible - beta * susceptible * infected;
+    // infected' = infected + beta * susceptible * infected - gamma * infected;
+    // recovered' = recovered + gamma * infected;
+
+    // with vaccination
+    susceptible' = susceptible * (1 - vaccinated) - beta * susceptible * infected;
+    infected' = infected + beta * susceptible * infected - gamma * infected;
+    recovered' = recovered + gamma * infected + susceptible * vaccinated;
+    vaccinated' = vaccinated;
+
+    g' = if (g) then true else if ((beta/gamma * susceptible < 1) ^ (infected <= 0.05)) then true else false;
+    overwhelmed' = if (overwhelmed) then true else if (infected > 0.05) then true else false;
+    // Note that beta/gamma * susceptible is the effective reproductive number
+  };
+
+    reward = if (g | overwhelmed) then 0 else if ((beta/gamma * susceptible < 1) ^ (infected <= 0.05)) then 1 else 0;
+}
+
+// Explanation
+
+// keeping an epidemic from getting started is the same as keeping di/dt negative from  t = 0 on
+// s(t) is a decreasing function of t, and thus has its maximum at t = 0
+// if di/dt is negative at t = 0, then it stays negative for all t
+// i'_0 = (beta * s - gamma) * i_0
+// if s < gamma / beta = 1/r0, then i'_0 < 0
+
+// This domain addresses the question of what fraction of the population needs to be vaccinated at each time t to achieve herd immunity at time t, as opposed to the usual question of what fraction of the population needs to be vaccinated at time t0 to prevent the epidemic from starting, i.e., to achieve herd immunity at time t0.
+
+// python pyRDDLGym_symbolic/examples/run_pe.py --domain SIR --policy_fpath=./pyRDDLGym_symbolic/examples/files/SIR/policy/p1.json --max_iter=4 --save_graph

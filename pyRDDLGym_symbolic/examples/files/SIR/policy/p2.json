@@ -1,0 +1,4 @@
+{
+    "action-fluents": ["vaccinated"],
+    "vaccinated": "pyRDDLGym/Examples/SDPTestDomains/SIR/policy/vaccinated.xadd"
+}

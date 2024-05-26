@@ -1,0 +1,4 @@
+[General]
+name=SIR
+description=SIR
+viz=TextViz.TextVisualizer

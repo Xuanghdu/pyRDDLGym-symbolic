@@ -1,0 +1,5 @@
+{
+    "action-fluents": ["fx", "fy"],
+    "fx": "/home/xuanghdu/thesis/code/new/pyRDDLGym-symbolic/pyRDDLGym_symbolic/examples/files/Racecar/policy/fx.xadd",
+    "fy": "/home/xuanghdu/thesis/code/new/pyRDDLGym-symbolic/pyRDDLGym_symbolic/examples/files/Racecar/policy/fy.xadd"
+}
